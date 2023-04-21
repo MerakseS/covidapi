@@ -7,10 +7,19 @@ import io.circe.{Decoder, Encoder}
 import org.http4s.*
 import org.http4s.circe.*
 
-case class CovidCases(Country: String, Cases: Int, Date: String)
+import java.time.ZonedDateTime
+
+case class CovidCases(country: String, province: String, cases: Int, date: ZonedDateTime)
 
 object CovidCases:
-  given Decoder[CovidCases] = Decoder.derived[CovidCases]
+  given Decoder[CovidCases] = Decoder.instance { h =>
+    for {
+      country <- h.get[String]("Country")
+      province <- h.get[String]("Province")
+      cases <- h.get[Int]("Cases")
+      date <- h.get[ZonedDateTime]("Date")
+    } yield CovidCases(country, province, cases, date)
+  }
 
   given[F[_] : Concurrent]: EntityDecoder[F, CovidCases] = jsonOf
 

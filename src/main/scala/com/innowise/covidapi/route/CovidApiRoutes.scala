@@ -2,7 +2,6 @@ package com.innowise.covidapi.route
 
 import cats.effect.{Concurrent, Sync}
 import cats.implicits.*
-import com.innowise.covidapi.dto.MinMaxCasesRequest
 import com.innowise.covidapi.model.CovidCases
 import com.innowise.covidapi.service.CovidApiService
 import io.circe.{Decoder, Encoder}
@@ -35,7 +34,7 @@ object CovidApiRoutes:
       case GET -> Root / "covid" / "country" / country :?
         FromDateQueryParamMatcher(from) +& ToDateQueryParamMatcher(to) =>
         for {
-          covidCases <- covidApiService.get(MinMaxCasesRequest(country, from, to))
+          covidCases <- covidApiService.get(country, from, to)
           resp <- Ok(covidCases)
         } yield resp
     }

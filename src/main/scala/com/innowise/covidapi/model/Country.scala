@@ -2,14 +2,20 @@ package com.innowise.covidapi.model
 
 import cats.effect.Concurrent
 import cats.implicits.*
-import io.circe.{Decoder, Encoder}
+import io.circe.{Decoder, DecodingFailure, Encoder}
 import org.http4s.*
 import org.http4s.circe.*
 
-case class Country(Country: String, Slug: String, ISO2: String)
+case class Country(country: String, slug: String, iso2: String)
 
 object Country:
-  given Decoder[Country] = Decoder.derived[Country]
+  given Decoder[Country] = Decoder.instance { h =>
+    for {
+      country <- h.get[String]("Country")
+      slug <- h.get[String]("Slug")
+      iso2 <- h.get[String]("ISO2")
+    } yield Country(country, slug, iso2)
+  }
 
   given[F[_] : Concurrent]: EntityDecoder[F, Country] = jsonOf
 

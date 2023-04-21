@@ -2,8 +2,7 @@ package com.innowise.covidapi.service
 
 import cats.effect.Concurrent
 import cats.implicits.*
-import com.innowise.covidapi.dto.MinMaxCasesRequest
-import com.innowise.covidapi.model.{Country, CovidCases}
+import com.innowise.covidapi.model.{Country, CovidCases, MinMaxCases}
 import com.innowise.covidapi.service.CovidApiService
 import io.circe.{Decoder, Encoder}
 import org.http4s
@@ -15,10 +14,12 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.implicits.*
 
+import java.time.ZonedDateTime
+
 trait CovidApiService[F[_]]:
   def getCountryList: F[List[Country]]
 
-  def get(covidCasesRequest: MinMaxCasesRequest): F[List[CovidCases]]
+  def get(country: String, from: String, to: String): F[MinMaxCases]
 
 object CovidApiService:
   def apply[F[_]](implicit ev: CovidApiService[F]): CovidApiService[F] = ev
@@ -40,15 +41,50 @@ object CovidApiService:
         }
     }
 
-    override def get(covidCasesRequest: MinMaxCasesRequest): F[List[CovidCases]] = {
-      val uri = baseUrl / "country" / covidCasesRequest.country /
-        "status" / "confirmed" +?
-        ("from", covidCasesRequest.from) +?
-        ("to", covidCasesRequest.to)
+    override def get(country: String, from: String, to: String): F[MinMaxCases] = {
+      for {
+        covidCasesList <- getCovidCasesList(country, from, to)
+        covidCasesListWithoutProvinces = covidCasesList.filter(_.province.isEmpty)
+        minMaxCasesResponse = calculateMinMaxCases(covidCasesListWithoutProvinces)
+      } yield minMaxCasesResponse
+    }
 
-      client.expect[List[CovidCases]](uri)
-        .adaptError { case t =>
-          t.printStackTrace()
-          CovidApiError(t)
+    private def getCovidCasesList(country: String, from: String, to: String): F[List[CovidCases]] = {
+      val uri = baseUrl / "country" / country /
+        "status" / "confirmed" +?
+        ("from", from) +?
+        ("to", to)
+
+      (for {
+        covidCasesList <- client.expect[List[CovidCases]](uri)
+        covidCasesListWithoutProvinces = covidCasesList.filter(_.province.isEmpty)
+      } yield covidCasesListWithoutProvinces
+        ).adaptError { case t =>
+        t.printStackTrace()
+        CovidApiError(t)
+      }
+    }
+
+    private def calculateMinMaxCases(covidCasesList: List[CovidCases]): MinMaxCases = {
+      var minNewCases = Int.MaxValue
+      var minNewCasesDate: ZonedDateTime = null
+
+      var maxNewCases = Int.MinValue
+      var maxNewCasesDate: ZonedDateTime = null
+
+      for (i <- 1 until covidCasesList.length) {
+        val newCases = covidCasesList(i).cases - covidCasesList(i - 1).cases
+        if (newCases < minNewCases) {
+          minNewCases = newCases
+          minNewCasesDate = covidCasesList(i).date
         }
+
+        if (newCases > maxNewCases) {
+          maxNewCases = newCases
+          maxNewCasesDate = covidCasesList(i).date
+        }
+      }
+
+      MinMaxCases(covidCasesList.head.country, minNewCases, minNewCasesDate,
+        maxNewCases, maxNewCasesDate)
     }
