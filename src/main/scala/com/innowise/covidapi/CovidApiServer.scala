@@ -19,10 +19,7 @@ object CovidApiServer:
       client <- EmberClientBuilder.default[F].build
       covidCasesAlg = CovidApiService.impl[F](client)
 
-      httpApp = (
-        CovidApiRoutes.covidCasesRoutes[F](covidCasesAlg) <+>
-          CovidApiRoutes.countriesRoutes[F](covidCasesAlg)
-        ).orNotFound
+      httpApp = CovidApiRoutes.covidCasesRoutes[F](covidCasesAlg).orNotFound
 
       loggerHttpApp = Logger.httpApp(true, true)(httpApp)
 

@@ -19,7 +19,7 @@ import java.time.ZonedDateTime
 trait CovidApiService[F[_]]:
   def getCountryList: F[List[Country]]
 
-  def get(country: String, from: String, to: String): F[MinMaxCases]
+  def getMinMaxCases(country: String, from: String, to: String): F[MinMaxCases]
 
 object CovidApiService:
   def apply[F[_]](implicit ev: CovidApiService[F]): CovidApiService[F] = ev
@@ -41,7 +41,7 @@ object CovidApiService:
         }
     }
 
-    override def get(country: String, from: String, to: String): F[MinMaxCases] = {
+    override def getMinMaxCases(country: String, from: String, to: String): F[MinMaxCases] = {
       for {
         covidCasesList <- getCovidCasesList(country, from, to)
         covidCasesListWithoutProvinces = covidCasesList.filter(_.province.isEmpty)
@@ -50,10 +50,8 @@ object CovidApiService:
     }
 
     private def getCovidCasesList(country: String, from: String, to: String): F[List[CovidCases]] = {
-      val uri = baseUrl / "country" / country /
-        "status" / "confirmed" +?
-        ("from", from) +?
-        ("to", to)
+      val uri = baseUrl / "country" / country / "status" / "confirmed" +?
+        ("from", from) +? ("to", to)
 
       (for {
         covidCasesList <- client.expect[List[CovidCases]](uri)

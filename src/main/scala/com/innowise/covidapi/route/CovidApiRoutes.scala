@@ -15,8 +15,8 @@ object CovidApiRoutes:
   private object FromDateQueryParamMatcher extends QueryParamDecoderMatcher[String]("from")
 
   private object ToDateQueryParamMatcher extends QueryParamDecoderMatcher[String]("to")
-  
-  def countriesRoutes[F[_] : Sync](covidApiService: CovidApiService[F]): HttpRoutes[F] =
+
+  def covidCasesRoutes[F[_] : Sync](covidApiService: CovidApiService[F]): HttpRoutes[F] =
     val dsl = new Http4sDsl[F] {}
     import dsl.*
     HttpRoutes.of[F] {
@@ -25,16 +25,10 @@ object CovidApiRoutes:
           countryList <- covidApiService.getCountryList
           resp <- Ok(countryList)
         } yield resp
-    }
-    
-  def covidCasesRoutes[F[_] : Sync](covidApiService: CovidApiService[F]): HttpRoutes[F] =
-    val dsl = new Http4sDsl[F] {}
-    import dsl.*
-    HttpRoutes.of[F] {
       case GET -> Root / "covid" / "country" / country :?
         FromDateQueryParamMatcher(from) +& ToDateQueryParamMatcher(to) =>
         for {
-          covidCases <- covidApiService.get(country, from, to)
+          covidCases <- covidApiService.getMinMaxCases(country, from, to)
           resp <- Ok(covidCases)
         } yield resp
     }
